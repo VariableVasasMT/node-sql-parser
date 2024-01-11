@@ -55,6 +55,10 @@
     'NOT': true,
     'NULL': true,
     'NULLS': true,
+    'MERGE': true,
+
+    'MATCHED': true,
+    'TARGET': true,
 
     'OFFSET': true,
     'ON': true,
@@ -2433,6 +2437,44 @@ table_base
       }
     }
 
+merge_into_stmt
+  = KW_MERGE __ KW_INTO __ target:table_name __ KW_USING __ source:table_source __ KW_ON __ condition:or_and_where_expr __ merge_action+ {
+      return {
+        type: 'merge_into',
+        target: target,
+        using: source,
+        on: condition,
+        actions: merge_action
+      };
+    }
+
+table_source
+  = table_ref_list
+  / LPAREN __ select_stmt __ RPAREN { return { type: 'select', query: select_stmt }; }
+
+merge_action
+  = KW_WHEN __ KW_MATCHED __ KW_AND __ condition:or_and_where_expr __ KW_THEN __ KW_UPDATE __ KW_SET __ set_list:set_list {
+      return {
+        type: 'when_matched',
+        condition: condition,
+        action: 'update',
+        set: set_list
+      };
+    }
+  / KW_WHEN __ KW_MATCHED __ KW_THEN __ KW_DELETE {
+      return {
+        type: 'when_matched',
+        action: 'delete'
+      };
+    }
+  / KW_WHEN __ KW_NOT __ KW_MATCHED __ KW_BY __ KW_TARGET __ KW_THEN __ KW_INSERT __ LPAREN __ columns:column_list __ RPAREN __ KW_VALUES __ LPAREN __ values:expr_list __ RPAREN {
+      return {
+        type: 'when_not_matched',
+        action: 'insert',
+        columns: columns,
+        values: values
+      };
+    }
 
 join_op
   = KW_LEFT __ KW_OUTER? __ KW_JOIN { /* => 'LEFT JOIN' */ return 'LEFT JOIN'; }
@@ -4149,6 +4191,11 @@ KW_TEMPORARY = "TEMPORARY"i !ident_start
 KW_TEMP     = "TEMP"i !ident_start
 KW_DELETE   = "DELETE"i     !ident_start
 KW_INSERT   = "INSERT"i     !ident_start
+
+KW_MERGE    = "MERGE"i      !ident_start
+KW_MATCHED  = "MATCHED"i    !ident_start
+KW_TARGET   = "TARGET"i     !ident_start
+
 KW_RECURSIVE= "RECURSIVE"   !ident_start { return 'RECURSIVE'; }
 KW_REPLACE  = "REPLACE"i    !ident_start
 KW_RETURNING  = "RETURNING"i    !ident_start { return 'RETURNING' }
